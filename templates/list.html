@@ -1,0 +1,545 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ todo_list.title }} - Hierarchical Todo List{% endblock %}
+
+{% block content %}
+<div class="list-view">
+    <div class="list-header">
+        <div class="list-title">
+            <a href="{{ url_for('dashboard') }}" class="back-link">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+            <h2>{{ todo_list.title }}</h2>
+        </div>
+        <div class="list-actions">
+            <button class="btn btn-secondary edit-list-btn" data-list-id="{{ todo_list.id }}" data-list-title="{{ todo_list.title }}">
+                <i class="fas fa-edit"></i> Edit List
+            </button>
+        </div>
+    </div>
+    
+    <div class="items-container">
+        <h3>Tasks</h3>
+        
+        {% if items %}
+            <ul class="items-list">
+                {% for item in items %}
+                    {{ render_item(item, todo_list.id) }}
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-tasks"></i>
+                <p>No items in this list yet.</p>
+                <p>Add your first task to get started!</p>
+            </div>
+        {% endif %}
+        
+        <!-- New task form at bottom of list -->
+        <div class="new-item-form">
+            <form method="POST" action="{{ url_for('new_item') }}" class="item new-item">
+                <input type="hidden" name="list_id" value="{{ todo_list.id }}">
+                <input type="hidden" name="parent_id" value="">
+                <div class="item-content">
+                    <div class="item-main">
+                        <div class="item-text">
+                            <input type="text" name="content" placeholder="Add a new task..." required>
+                        </div>
+                    </div>
+                    <div class="item-actions">
+                        <button type="submit" class="btn btn-sm btn-success">
+                            <i class="fas fa-check"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-secondary cancel-new-item">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit List Modal -->
+<div id="edit-list-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h3>Edit List</h3>
+        <form id="edit-list-form" method="POST">
+            <div class="form-group">
+                <label for="edit-list-title">Title</label>
+                <input type="text" id="edit-list-title" name="title" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+        </form>
+    </div>
+</div>
+
+<!-- Move Item Modal -->
+<div class="dialog-overlay" id="moveDialogOverlay" style="display: none;"></div>
+<div class="custom-dialog" id="moveDialog" style="display: none;">
+    <div class="modal-header">
+        <h3 class="modal-title">Move Item</h3>
+        <button class="modal-close" id="closeMoveDialog">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div class="modal-body">
+        <div class="form-group">
+            <label for="move-target-type">Move to:</label>
+            <select id="move-target-type" name="target_type" class="form-control">
+                <option value="list">List</option>
+                <option value="item">Item</option>
+            </select>
+        </div>
+        <div class="form-group" id="move-target-list-group">
+            <label for="move-target-list">Select List:</label>
+            <select id="move-target-list" name="target_id" class="form-control">
+                <!-- Options will be populated dynamically -->
+            </select>
+        </div>
+        <div class="form-group" id="move-target-item-group" style="display: none;">
+            <label for="move-target-item">Select Item:</label>
+            <select id="move-target-item" name="target_id" class="form-control">
+                <!-- Options will be populated dynamically -->
+            </select>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancelMove">Cancel</button>
+        <button class="btn btn-primary" id="confirmMove">Move</button>
+    </div>
+</div>
+
+<!-- Delete Confirmation Dialog -->
+<div class="dialog-overlay" id="deleteDialogOverlay" style="display: none;"></div>
+<div class="custom-dialog" id="deleteDialog" style="display: none;">
+    <div class="modal-header">
+        <h3 class="modal-title">Delete Item</h3>
+        <button class="modal-close" id="closeDeleteDialog">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div class="modal-body">
+        <p>Are you sure you want to delete this item? This action cannot be undone.</p>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancelDelete">Cancel</button>
+        <button class="btn btn-danger" id="confirmDelete">Delete</button>
+    </div>
+</div>
+
+{% endblock %}
+
+{% macro render_item(item, list_id, depth=0) %}
+    <li class="item-wrapper" data-item-id="{{ item.id }}">
+        <div class="item depth-{{ depth }} {% if item.completed %}completed{% endif %}">
+            <div class="item-content">
+                <div class="item-main">
+                    {% if item.children %}
+                        <button class="collapse-btn {% if item.collapsed %}collapsed{% endif %}" data-item-id="{{ item.id }}">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                    {% endif %}
+                    
+                    <div class="item-checkbox">
+                        <input type="checkbox" class="toggle-item" data-item-id="{{ item.id }}" {% if item.completed %}checked{% endif %}>
+                    </div>
+                    
+                    <div class="item-text" data-item-id="{{ item.id }}">
+                        <span class="item-content-text">{{ item.content }}</span>
+                        <input type="text" class="item-edit-input" value="{{ item.content }}" style="display: none;">
+                    </div>
+                </div>
+                
+                <div class="item-actions">
+                    <button class="btn btn-sm btn-primary add-subitem-btn" data-item-id="{{ item.id }}">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                    
+                    <button class="btn btn-sm btn-secondary edit-item-btn" data-item-id="{{ item.id }}">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    
+                    <button class="btn btn-sm btn-info move-item-btn" data-item-id="{{ item.id }}" data-item-content="{{ item.content }}">
+                        <i class="fas fa-exchange-alt"></i>
+                    </button>
+                    
+                    <button class="btn btn-sm btn-danger delete-item-btn" data-item-id="{{ item.id }}">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- New subitem form (initially hidden) -->
+        <div class="new-subitem-form" style="display: none;">
+            <form method="POST" action="{{ url_for('new_item') }}" class="item new-item depth-{{ depth + 1 }}">
+                <input type="hidden" name="list_id" value="{{ list_id }}">
+                <input type="hidden" name="parent_id" value="{{ item.id }}">
+                <div class="item-content">
+                    <div class="item-main">
+                        <div class="item-text">
+                            <input type="text" name="content" placeholder="Add a subtask..." required>
+                        </div>
+                    </div>
+                    <div class="item-actions">
+                        <button type="submit" class="btn btn-sm btn-success">
+                            <i class="fas fa-check"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-secondary cancel-new-subitem">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        {% if item.children %}
+            <ul class="subitems {% if item.collapsed %}collapsed{% endif %}">
+                {% for child in item.children %}
+                    {{ render_item(child, list_id, depth + 1) }}
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </li>
+{% endmacro %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Edit list functionality
+    const listModal = document.getElementById('edit-list-modal');
+    const editListBtn = document.querySelector('.edit-list-btn');
+    const closeListBtn = document.querySelector('.close');
+    const editListForm = document.getElementById('edit-list-form');
+    const editListTitleInput = document.getElementById('edit-list-title');
+    
+    // Move dialog elements
+    const moveDialog = document.getElementById('moveDialog');
+    const moveDialogOverlay = document.getElementById('moveDialogOverlay');
+    const moveTargetType = document.getElementById('move-target-type');
+    const moveTargetList = document.getElementById('move-target-list');
+    const moveTargetItem = document.getElementById('move-target-item');
+    const moveTargetListGroup = document.getElementById('move-target-list-group');
+    const moveTargetItemGroup = document.getElementById('move-target-item-group');
+    const confirmMove = document.getElementById('confirmMove');
+    const cancelMove = document.getElementById('cancelMove');
+    const closeMoveDialog = document.getElementById('closeMoveDialog');
+    
+    // Delete dialog elements
+    const deleteDialog = document.getElementById('deleteDialog');
+    const deleteDialogOverlay = document.getElementById('deleteDialogOverlay');
+    const confirmDelete = document.getElementById('confirmDelete');
+    const cancelDelete = document.getElementById('cancelDelete');
+    const closeDeleteDialog = document.getElementById('closeDeleteDialog');
+    
+    editListBtn.addEventListener('click', function() {
+        const listId = this.getAttribute('data-list-id');
+        const listTitle = this.getAttribute('data-list-title');
+        
+        editListForm.action = `/list/${listId}/edit`;
+        editListTitleInput.value = listTitle;
+        listModal.style.display = 'block';
+    });
+    
+    closeListBtn.addEventListener('click', function() {
+        listModal.style.display = 'none';
+    });
+    
+    // Close modal when clicking outside
+    window.addEventListener('click', function(event) {
+        if (event.target == listModal) {
+            listModal.style.display = 'none';
+        }
+    });
+    
+    // Inline editing for items
+    document.querySelectorAll('.edit-item-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const itemId = this.getAttribute('data-item-id');
+            const itemContainer = document.querySelector(`.item-text[data-item-id="${itemId}"]`);
+            const contentSpan = itemContainer.querySelector('.item-content-text');
+            const editInput = itemContainer.querySelector('.item-edit-input');
+            
+            // Toggle visibility
+            contentSpan.style.display = 'none';
+            editInput.style.display = 'block';
+            editInput.focus();
+            
+            // Handle input events
+            function handleEdit(e) {
+                if (e.key === 'Enter' || e.type === 'blur') {
+                    e.preventDefault();
+                    const newContent = editInput.value.trim();
+                    
+                    if (newContent && newContent !== contentSpan.textContent) {
+                        // Send AJAX request to update item
+                        fetch(`/item/${itemId}/edit`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            },
+                            body: `content=${encodeURIComponent(newContent)}`
+                        })
+                        .then(response => response.ok ? response.json() : Promise.reject('Update failed'))
+                        .then(data => {
+                            contentSpan.textContent = newContent;
+                        })
+                        .catch(error => console.error('Error:', error));
+                    }
+                    
+                    // Reset display
+                    contentSpan.style.display = 'block';
+                    editInput.style.display = 'none';
+                    
+                    // Remove event listeners
+                    editInput.removeEventListener('keypress', handleEdit);
+                    editInput.removeEventListener('blur', handleEdit);
+                }
+            }
+            
+            editInput.addEventListener('keypress', handleEdit);
+            editInput.addEventListener('blur', handleEdit);
+        });
+    });
+    
+    // Add subitem functionality
+    document.querySelectorAll('.add-subitem-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const itemId = this.getAttribute('data-item-id');
+            const itemWrapper = document.querySelector(`li[data-item-id="${itemId}"]`);
+            const newSubitemForm = itemWrapper.querySelector('.new-subitem-form');
+            
+            // Toggle form visibility
+            newSubitemForm.style.display = newSubitemForm.style.display === 'none' ? 'block' : 'none';
+            
+            if (newSubitemForm.style.display === 'block') {
+                newSubitemForm.querySelector('input[name="content"]').focus();
+            }
+        });
+    });
+    
+    // Cancel new subitem
+    document.querySelectorAll('.cancel-new-subitem').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const form = this.closest('.new-subitem-form');
+            form.style.display = 'none';
+            form.querySelector('input[name="content"]').value = '';
+        });
+    });
+    
+    // Collapse functionality - FIXED
+    document.querySelectorAll('.collapse-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const itemId = this.getAttribute('data-item-id');
+            const itemWrapper = this.closest('.item-wrapper');
+            const subitemsList = itemWrapper.querySelector('.subitems');
+            
+            if (subitemsList) {
+                // Toggle collapsed class
+                subitemsList.classList.toggle('collapsed');
+                this.classList.toggle('collapsed');
+                
+                // Update icon
+                const icon = this.querySelector('i');
+                if (subitemsList.classList.contains('collapsed')) {
+                    icon.className = 'fas fa-chevron-right';
+                } else {
+                    icon.className = 'fas fa-chevron-down';
+                }
+                
+                // Send AJAX request to update collapsed state
+                fetch(`/item/${itemId}/collapse`, {
+                    method: 'GET'
+                })
+                .catch(error => console.error('Error:', error));
+            }
+        });
+    });
+
+    // Toggle item completion - FIXED to update UI for all children
+    document.querySelectorAll('.toggle-item').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const itemId = this.getAttribute('data-item-id');
+            const isChecked = this.checked;
+            
+            fetch(`/item/${itemId}/toggle`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update this item's UI
+                    const itemWrapper = this.closest('.item-wrapper');
+                    const item = itemWrapper.querySelector('.item');
+                    if (isChecked) {
+                        item.classList.add('completed');
+                    } else {
+                        item.classList.remove('completed');
+                    }
+                    
+                    // Update all child items' UI
+                    updateChildItemsUI(itemWrapper, isChecked);
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        });
+    });
+
+    // Function to update UI of all child items
+    function updateChildItemsUI(parentWrapper, isCompleted) {
+        const childItems = parentWrapper.querySelectorAll('.subitems .item-wrapper');
+        childItems.forEach(childWrapper => {
+            // Update checkbox
+            const checkbox = childWrapper.querySelector('.toggle-item');
+            if (checkbox) {
+                checkbox.checked = isCompleted;
+            }
+            
+            // Update completed class
+            const item = childWrapper.querySelector('.item');
+            if (item) {
+                if (isCompleted) {
+                    item.classList.add('completed');
+                } else {
+                    item.classList.remove('completed');
+                }
+            }
+            
+            // Recursively update children
+            updateChildItemsUI(childWrapper, isCompleted);
+        });
+    }
+
+    // Move item functionality
+    document.querySelectorAll('.move-item-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const itemId = this.getAttribute('data-item-id');
+            
+            // Set the current item ID for the move operation
+            moveDialog.dataset.itemId = itemId;
+            
+            // Fetch available move targets
+            fetch('/api/move_targets')
+                .then(response => response.json())
+                .then(data => {
+                    populateMoveTargets(data);
+                    showDialog(moveDialog, moveDialogOverlay);
+                })
+                .catch(error => console.error('Error:', error));
+        });
+    });
+
+    // Delete item functionality
+    document.querySelectorAll('.delete-item-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const itemId = this.getAttribute('data-item-id');
+            deleteDialog.dataset.deleteUrl = `/item/${itemId}/delete`;
+            showDialog(deleteDialog, deleteDialogOverlay);
+        });
+    });
+
+    // Helper function to show dialogs
+    function showDialog(dialog, overlay) {
+        dialog.style.display = 'block';
+        overlay.style.display = 'block';
+        setTimeout(() => {
+            dialog.classList.add('show');
+            overlay.classList.add('show');
+        }, 10);
+    }
+
+    // Helper function to hide dialogs
+    function hideDialog(dialog, overlay) {
+        dialog.classList.remove('show');
+        overlay.classList.remove('show');
+        setTimeout(() => {
+            dialog.style.display = 'none';
+            overlay.style.display = 'none';
+        }, 300);
+    }
+
+    moveTargetType.addEventListener('change', function() {
+        if (this.value === 'list') {
+            moveTargetListGroup.style.display = 'block';
+            moveTargetItemGroup.style.display = 'none';
+        } else {
+            moveTargetListGroup.style.display = 'none';
+            moveTargetItemGroup.style.display = 'block';
+        }
+    });
+
+    function populateMoveTargets(data) {
+        moveTargetList.innerHTML = '';
+        moveTargetItem.innerHTML = '';
+
+        data.lists.forEach(list => {
+            const option = document.createElement('option');
+            option.value = list.id;
+            option.textContent = list.title;
+            moveTargetList.appendChild(option);
+        });
+
+        data.items.forEach(item => {
+            const option = document.createElement('option');
+            option.value = item.id;
+            option.textContent = item.content;
+            moveTargetItem.appendChild(option);
+        });
+    }
+
+    confirmMove.addEventListener('click', function() {
+        const itemId = moveDialog.dataset.itemId;
+        const targetType = moveTargetType.value;
+        const targetId = (targetType === 'list') ? moveTargetList.value : moveTargetItem.value;
+
+        fetch(`/item/${itemId}/move`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `target_type=${encodeURIComponent(targetType)}&target_id=${encodeURIComponent(targetId)}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            }
+        })
+        .catch(error => console.error('Error:', error));
+
+        hideDialog(moveDialog, moveDialogOverlay);
+    });
+
+    cancelMove.addEventListener('click', function() {
+        hideDialog(moveDialog, moveDialogOverlay);
+    });
+
+    closeMoveDialog.addEventListener('click', function() {
+        hideDialog(moveDialog, moveDialogOverlay);
+    });
+
+    confirmDelete.addEventListener('click', function() {
+        const deleteUrl = deleteDialog.dataset.deleteUrl;
+        window.location.href = deleteUrl;
+        hideDialog(deleteDialog, deleteDialogOverlay);
+    });
+
+    cancelDelete.addEventListener('click', function() {
+        hideDialog(deleteDialog, deleteDialogOverlay);
+    });
+
+    closeDeleteDialog.addEventListener('click', function() {
+        hideDialog(deleteDialog, deleteDialogOverlay);
+    });
+});
+</script>
+{% endblock %}
+
