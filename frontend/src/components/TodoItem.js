@@ -15,7 +15,7 @@ function TodoItem({ item, level, onDelete, onToggleComplete, onUpdate, onAddSubI
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
 
   const hasChildren = item.children && item.children.length > 0
-  const maxLevel = 2 // 0-based index, so this is level 3
+  const maxLevel = 9 // 0-based index, so this is level 10. You can always add more.
 
   const handleToggleExpand = () => {
     setIsExpanded(!isExpanded)

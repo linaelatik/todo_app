@@ -121,7 +121,7 @@ def create_list():
         'list': {'id': todo_list.id, 'name': todo_list.name}
     }), 201
 
-# Apply login_required to all other routes...
+# Apply login_required to all other routes
 @app.route('/api/lists/<int:list_id>', methods=['DELETE'])
 @login_required
 def delete_list(list_id):
@@ -311,10 +311,6 @@ def move_item(item_id):
     
     if not target_list:
         return jsonify({'message': 'Target list not found'}), 404
-    
-    # Only allow moving top-level items (no parent)
-    if item.parent_id is not None:
-        return jsonify({'message': 'Only top-level items can be moved between lists'}), 400
     
     # Move the item to the target list
     item.list_id = target_list_id

@@ -16,7 +16,7 @@ A full-stack todo application that supports hierarchical task management with mu
 - Switch between different lists
 
 ### Hierarchical Tasks
-- Create tasks and subtasks (up to 3 levels deep)
+- Create tasks and subtasks (up to 10 levels deep, can be more if needed by adjusting line 18 in frontend/src/components/TodoItem.js)
 - Mark tasks as complete/incomplete (affects subtasks)
 - Edit task text inline
 - Move tasks between lists
@@ -106,4 +106,10 @@ todo_app/
 - Secure password hashing
 - HTTPS-only cookies
 - CSRF protection
-```
+
+### Demo Video: 
+https://www.loom.com/share/35805fecf19749bdb6a1c7123719096a?sid=0c3334fb-7054-4ac7-89c4-a582f249016a
+
+## IMPORTANT NOTE ABOUT VIDEO!!! 
+- I said in the video that you could only add 3 subtasks as it would be complicated but I figured it out and now the code * allows adding up to 10 LEVELS (you can make it more by changing in frontend/src/components/TodoItem.js )
+- I did not mention this due to time constraints but you can also delete Lists.
